@@ -34,7 +34,8 @@ detections<- filter(detections, tag_code != "900_226000135118") ##tag used for t
 ###  read in tagging information from outside file      ###
 ###########################################################
 
-fish <-read.xlsx("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/tagged fish.xlsx", sheetName = "Sheet1", as.data.frame=TRUE, header=TRUE)
+fish <-read.csv("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/tagged fish.csv",header=TRUE)
+#fish <-read.xlsx("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/tagged fish.xlsx", sheetName = "Sheet1", as.data.frame=TRUE, header=TRUE)
 fish$tag <- '900_'
 fish$Tag..<- as.character((fish$Tag..))
 fish$tag_code <- paste(fish$tag, fish$Tag.., sep = "")
@@ -48,7 +49,7 @@ fish<- fish %>%
     
 
 #################################################################################
-### split dataset into fish that get picked up on an antenna and those that don't                 ###
+### split dataset into fish that get picked up on an antenna and those that don't###
 #################################################################################
 
 detects<- detections%>%   #############generates a list of tag codes recorded on A1 and A2
@@ -63,7 +64,7 @@ foo$dummy [is.na(foo$dummy)] <- 0
 undetected <- filter(foo, dummy != 1)  #filter only to fish that were never detected
 
 ##########################################################################################
-###create dataframe that contains an entry for each day during the season for each fish###
+###create dataframe that contains an entry for each day during the season for each undetected fish###
 ##########################################################################################
 interval2013<- interval(ymd(20130415), ymd(20130619)) #figure out how long the antenna was active in 2013
 int_length(interval2013)/(60*60*24) #int_length is in seconds; divide by 60*60*24 to determine days
@@ -138,7 +139,7 @@ for (i in 1:z) {
 undetected2$exposure_duration <- undetected2$exposure_end - undetected2$exposure_begin
 
 ##################
-### Censor Info###
+### Censor for Undetected Fish ###
 ##################
 undetected2$Dam <- 1 #number of exposures to the dam - only 1 becuase a change in covariates does not count as a new exposure
 undetected2$Ladder <- "" #number of exposures to the ladder - unused for this group as they never try to get up the ladder
@@ -152,6 +153,11 @@ undetected_final <- select (undetected2, Species, tag_code, Tag_date, exposure_d
 
 
 ###add in exposure events for detected fish###
+
+  #1 - recreate dataframe with a day for each detected fish; similar to code above
+  #2 - create record line for each detection event - maybe assign ladde exposures here
+  #3 - "join" events to make sure there is a complete record for each day - no time gaps
+  #4 - figure out how to assign dam Exposures -
 
 ###need to add covariates once all of the exposure events are in the dataframe
 
