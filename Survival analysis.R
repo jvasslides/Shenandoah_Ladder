@@ -3,7 +3,7 @@
 ###########################
 
 library(PITR)
-library("xlsx")
+#library("xlsx")
 library(dplyr)
 library(lubridate)
 
@@ -61,7 +61,7 @@ detects$dummy <-1
 foo <- left_join(fish,detects, by = "tag_code")  #######bind the detected codes onto the list of all fish
 foo$dummy [is.na(foo$dummy)] <- 0
 
-undetected <- filter(foo, dummy != 1)  #filter only to fish that were never detected
+#undetected <- filter(foo, dummy != 1)  #filter only to fish that were never detected
 
 ##########################################################################################
 ###create dataframe that contains an entry for each day during the season for each undetected fish###
@@ -71,33 +71,33 @@ int_length(interval2013)/(60*60*24) #int_length is in seconds; divide by 60*60*2
 interval2014<- interval(ymd(20140411), ymd(20140701)) #figure out how long the antenna was active in 20014
 int_length(interval2014)/ (60*60*24) #int_length is in seconds; divide by 60*60*24 to determine days
 
-undetected2 <-bind_rows(replicate(82, undetected, simplify = FALSE)) #replicate each tag code the max number of days in the study
-undetected2 <-arrange(undetected2, tag_code)
+fullset <-bind_rows(replicate(82, foo, simplify = FALSE)) #replicate each tag code the max number of days in the study
+fullset <-arrange(fullset, tag_code)
 
-dummy2 <- (c(rep(c(0:81),316)))
+dummy2 <- (c(rep(c(0:81),nrow(fish))))
 dummy2 <- data.frame(dummy2)
 dummy2$dummy3 <- dummy2$dummy2*(60*60*24) #number of seconds in each day (dummy2)
-undetected2 <- bind_cols(undetected2,dummy2)
+fullset <- bind_cols(fullset,dummy2)
 rm(dummy2)
 
 #####################################################
 ###assign a date to each day the fish was at large###
 #####################################################
-n <- nrow(undetected2)
+n <- nrow(fullset)
 
-undetected2$exposure_date <- undetected2$Tag_date
+fullset$exposure_date <- fullset$Tag_date
 
 for (i in 1:n) {  
   
-    if(undetected2[i,]$dummy3 == 0) { 
-        undetected2[i,]$exposure_date <- undetected2[i,]$Tag_date 
+    if(fullset[i,]$dummy3 == 0) { 
+        fullset[i,]$exposure_date <- fullset[i,]$Tag_date 
   } else {
-    undetected2[i,]$exposure_date <- undetected2[i,]$Tag_date + undetected2[i,]$dummy3 
+    fullset[i,]$exposure_date <- fullset[i,]$Tag_date + fullset[i,]$dummy3 
   }
 }
 
 
-undetected2 <- undetected2 %>% #cuts out extra dates from when the system was not on
+fullset <- fullset %>% #cuts out extra dates from when the system was not on
   filter(exposure_date < "2013-06-20" | exposure_date > "2014-04-11") %>%
   filter (exposure_date < "2014-07-02") 
   
@@ -107,57 +107,59 @@ undetected2 <- undetected2 %>% #cuts out extra dates from when the system was no
 ##################################
 
 #assign a time of midnight to the start of each exposure event other than the day of tagging
-z <- nrow(undetected2)
+z <- nrow(fullset)
 
 for (i in 1:z) {  
   
-  if(undetected2[i,]$dummy3 == 0) { 
-    undetected2[i,]$exposure_date <- undetected2[i,]$exposure_date 
+  if(fullset[i,]$dummy3 == 0) { 
+    fullset[i,]$exposure_date <- fullset[i,]$exposure_date 
   } else {
-    hour(undetected2[i,]$exposure_date) <- 0 
+    hour(fullset[i,]$exposure_date) <- 0 
   }
 }
 
 #number of hours since release that exposure began
-undetected2$exposure_begin <-(int_length (undetected2$Tag_date %--% undetected2$exposure_date))/(60*60) 
+fullset$exposure_begin <-(int_length (fullset$Tag_date %--% fullset$exposure_date))/(60*60) 
 
 #number of hours since release that exposure ends 
 #BRUTE FORCE, SHOULD BE A MORE ELEGANT ANSWER USING A LOOP AND ASSIGNING THE BEGINNING OF THE NEXT EXPOSURE
 #BUT NEEDS TO BE DONE BY TAG CODE, AND WHAT HAPPENS ON THE LAST DAY
 
-undetected2$exposure_end <- undetected2$exposure_begin
+fullset$exposure_end <- fullset$exposure_begin
 
 for (i in 1:z) {  
   
-  if(undetected2[i,]$dummy3 == 0) { 
-    undetected2[i,]$exposure_end <- undetected2[i,]$exposure_begin + 12 #new exposure begins 12 hrs after tagging
+  if(fullset[i,]$dummy3 == 0) { 
+    fullset[i,]$exposure_end <- fullset[i,]$exposure_begin + 12 #new exposure begins 12 hrs after tagging
   } else {
-    undetected2[i,]$exposure_end <- undetected2[i,]$exposure_begin + 24 #new exposure begins each subsequent day
+    fullset[i,]$exposure_end <- fullset[i,]$exposure_begin + 24 #new exposure begins each subsequent day
   }
 }
 
-undetected2$exposure_duration <- undetected2$exposure_end - undetected2$exposure_begin
+fullset$exposure_duration <- fullset$exposure_end - fullset$exposure_begin
 
 ##################
 ### Censor for Undetected Fish ###
 ##################
-undetected2$Dam <- 1 #number of exposures to the dam - only 1 becuase a change in covariates does not count as a new exposure
-undetected2$Ladder <- "" #number of exposures to the ladder - unused for this group as they never try to get up the ladder
-undetected2$Ladder<- as.numeric(undetected2$Ladder)
-undetected2$censor_approach <- 2 # censor code for the approach; 1 = enter ladder, 2 = change of covariates
-undetected2$censor_ladder <- "" #censor code for the ladder; 0= fails to pass, 1 = passes, 2= change of covariates 
-undetected2$censor_ladder<- as.numeric(undetected2$censor_ladder)
+undetected <- filter(fullset, dummy != 1)  #filter only to fish that were never detected
 
-#clean up and reorder dataframe
-undetected_final <- select (undetected2, Species, tag_code, Tag_date, exposure_date:censor_ladder, Length..mm., Weight..g.)
+undetected$Dam <- 1 #number of exposures to the dam - only 1 becuase a change in covariates does not count as a new exposure
+undetected$Ladder <- "" #number of exposures to the ladder - unused for this group as they never try to get up the ladder
+undetected$Ladder<- as.numeric(undetected$Ladder)
+undetected$censor_approach <- 2 # censor code for the approach; 1 = enter ladder, 2 = change of covariates
+undetected$censor_ladder <- "" #censor code for the ladder; 0= fails to pass, 1 = passes, 2= change of covariates 
+undetected$censor_ladder<- as.numeric(undetected$censor_ladder)
 
 
 ###add in exposure events for detected fish###
 
-  #1 - recreate dataframe with a day for each detected fish; similar to code above
   #2 - create record line for each detection event - maybe assign ladde exposures here
   #3 - "join" events to make sure there is a complete record for each day - no time gaps
   #4 - figure out how to assign dam Exposures -
+
+
+#clean up and reorder dataframe
+#undetected_final <- select (undetected2, Species, tag_code, Tag_date, exposure_date:censor_ladder, Length..mm., Weight..g.)
 
 ###need to add covariates once all of the exposure events are in the dataframe
 
