@@ -265,6 +265,8 @@ alldetects <- bind_rows(detected2, detects)
 
 alldetects <- arrange(alldetects, tag_code, exposure_begin)
 
+#write.csv(alldetects,"C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/alldetects.csv")
+
 #############################################################################
 ### kick alldetects into excel to make the following changes :( to much of a pain to figure out in R
 ### 1. adjust overlapping exposures
@@ -276,24 +278,66 @@ alldetects <- arrange(alldetects, tag_code, exposure_begin)
 ###     b. first day of 2014 begins new exposure_dam
 ###     c. assume fish are in the system beginning 4/11 
 
-write.csv(alldetects,"C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/alldetects.csv")
+#alldetects2 <-read.csv ("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/alldetects2.csv")
 
 
-########################################this is where I am stopped############
+############################################################################
+####reformat/reorder detect and non-detect datasets to match and combine####
+############################################################################
+alldetects2$Tag_date <- as.character(alldetects2$Tag_date)
+alldetects2$Tag_date <- as.POSIXct(alldetects2$Tag_date, tz = "US/Eastern", "%m/%d/%Y %H:%M")
+alldetects2$exposure_start_date <- as.character(alldetects2$exposure_start_date)
+alldetects2$exposure_start_date <- as.POSIXct(alldetects2$exposure_start_date, tz = "US/Eastern", "%m/%d/%Y %H:%M")
+
+alldetects2$tag_code <- as.character(alldetects2$tag_code)
+
+alldetects2 <- alldetects2 %>%
+  rename(Length = Length..mm.) %>%
+  rename(Weight = Weight..g.) %>%
+  select(tag_code, Tag_date, exposure_dam, exposure_ladder, exposure_start_date, exposure_begin, exposure_end, exposure_duration, censor_approach, censor_ladder, Species, Length, Weight, Age)
+
+undected2 <- undetected %>%
+  rename(exposure_dam = Dam) %>%
+  rename(exposure_ladder = Ladder) %>%
+  rename(exposure_start_date = exposure_date) %>%
+  rename(Length = Length..mm.) %>%
+  rename(Weight = Weight..g.) %>%
+  select(tag_code, Tag_date, exposure_dam, exposure_ladder, exposure_start_date, exposure_begin, exposure_end, exposure_duration, censor_approach, censor_ladder, Species, Length, Weight, Age)
+
+tagdata <- bind_rows(alldetects2,undected2)
 
 
- 
+##############################################################################
+###############bring in covariate data and combine with tag data##############
+##############################################################################
 
-#need to 
-    #pipe to match columns with undetected 
+tempdata <-read.csv ("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/Temp_Corrected.csv")
+
+tempdata$Date<- as.Date(tempdata$Date)
+tempdata <- select(tempdata, Date, avgTemp)
+  
+discharge <-read.csv ("C:/Users/jvasslides/Documents/R_Projects/Shenandoah_Ladder/USGS discharge data.csv")
+#############THERE ARE MISSING DAYS FROM THE USGS DATA RECORD IN 2013
+
+discharge$Date_Time <- as.character(discharge$Date_Time)
+discharge$Date_Time <- as.POSIXct(discharge$Date_Time, tz = "US/Eastern", "%m/%d/%Y %H:%M")
+
+discharge$Date <- date(discharge$Date_Time)
+
+discharge <- discharge %>%
+  group_by(Date) %>%
+  summarise(avg_discharge = mean(Discharge))
+
+covariates <- full_join(tempdata, discharge, by = "Date")
+
+tagdata$Date <- date(tagdata$exposure_start_date)
+
+data_final <- left_join(tagdata, covariates, by = "Date")
 
 
+########################################time for the actual analysis############
 
 
-#clean up and reorder dataframe
-
-
-###need to add covariates once all of the exposure events are in the dataframe
 
 
 
