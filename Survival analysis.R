@@ -337,7 +337,7 @@ data_final <- left_join(tagdata, covariates, by = "Date")
 
 ########################################time for the actual analysis############
 
-
+library(survival)
 
 
 
