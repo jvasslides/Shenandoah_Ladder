@@ -164,6 +164,51 @@ detected<- detections%>%
 ####(where the interval between detections < 2 minutes)
 
 
+options(digits.secs=2)
+options(digits=16)
+
+###downstream antenna cutoffs####
+down<-detections[detections$antenna==3,]#pull out  just the downstream antenna data
+down$PIT<-as.numeric(substr(down$tag_code,11,16))
+
+down<-down%>%
+  arrange(PIT,date_time)%>%
+  group_by(PIT)%>%
+  mutate(TimeLag=as.numeric(ifelse(row_number()==1,0,
+                        as.numeric(difftime(date_time,lag(date_time),units="secs")))),#calculate lags
+         Switch=ifelse(row_number()==1,1,#if it's the first row put a 1, otherwise...
+                       ifelse(TimeLag<0.5,0,1)),#IF THE CONTACT IS WITHIN THE TIME THRESHOLD FOR A NEW PRESENCE, PUT A ZERO, OTHERWISE A 1
+         Presence=cumsum(Switch))%>%
+  ungroup()
+         
+down$TimeLag<-ifelse(down$TimeLag>10000,10000,down$TimeLag)#chop it to look at the distribution
+bins<-c(0:167)
+bins<-as.vector(bins*60)#create X second bins
+HistOut<-hist(down$TimeLag,breaks=bins)
+HistOut$breaks<-HistOut$breaks[1:167]#This removes an extra line from the histogram output and allows plotting
+plot(HistOut$count~HistOut$breaks,log="y",type='h',main="Lags between detections (60 second bins)")
+
+###entrance antenna cutoffs####
+enter<-detections[detections$antenna==2,]#pull out  just the entrance antenna data
+enter$PIT<-as.numeric(substr(enter$tag_code,11,16))
+
+enter<-enter%>%
+  arrange(PIT,date_time)%>%
+  group_by(PIT)%>%
+  mutate(TimeLag=as.numeric(ifelse(row_number()==1,0,
+                                   as.numeric(difftime(date_time,lag(date_time),units="secs")))),#calculate lags
+         Switch=ifelse(row_number()==1,1,#if it's the first row put a 1, otherwise...
+                       ifelse(TimeLag<0.5,0,1)),#IF THE CONTACT IS WITHIN THE TIME THRESHOLD FOR A NEW PRESENCE, PUT A ZERO, OTHERWISE A 1
+         Presence=cumsum(Switch))%>%
+  ungroup()
+
+enter$TimeLag<-ifelse(enter$TimeLag>10000,10000,enter$TimeLag)#chop it to look at the distribution
+enter_trunc<- subset(enter, TimeLag<600) #remove detections more than 10 min apart; obviously separate attempts
+bins<-c(0:20)
+bins<-as.vector(bins*30)#create X second bins
+HistOut<-hist(enter_trunc$TimeLag,breaks=bins)
+HistOut$breaks<-HistOut$breaks[1:20]#This removes an extra line from the histogram output and allows plotting
+plot(HistOut$count~HistOut$breaks,log="y",type='h',main="Lags between detections (30 second bins)")
 #calculate the interval between two detections for the same tag code; 
 #if different tag codes set interval to 0 
 
