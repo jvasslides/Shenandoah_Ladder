@@ -15,15 +15,53 @@ old <- "Z:/BBP Projects/Herring work/Lake Shenandoah ladder/Analysis/array_old"
 ######2014 files are from current firmware
 new <- "Z:/BBP Projects/Herring work/Lake Shenandoah ladder/Analysis/array_new"
 
-######assign text tag numbers#####
+######assign test tag numbers#####
 tt <- c("0000_0000000174764544","0000_0000000174764573", "0000_0000000180573686", "0000_0000000181177608", "0000_0000000174764573", "0000_00000181177608")
 
-####collate the data####
+
+######################################################################################################
+### pull the data together, subset for only test tags, and look to see when the system was running ###
+######################################################################################################
+old_dat_all <- old_pit(data=old, test_tags = NULL, print_to_file = FALSE)
+
+new_dat_all <- new_pit(data=new, test_tags = NULL, print_to_file = FALSE)
+
+full_dat <-rbind(old_dat_all$all_det, new_dat_all$all_det)
+full_dat$tag_type<- as.factor(full_dat$tag_type)
+
+marker_tags<-full_dat %>%
+  filter(tag_type !="A") %>%
+  group_by(antenna) %>%
+  arrange(date, .by_group=TRUE) %>%
+  count(antenna, date) %>%
+  mutate(year=year(date)) %>%
+  mutate(ant = case_when (
+    antenna ==1 ~ "exit",
+    antenna ==2 ~ "entrance",
+    antenna ==3 ~ "downstream"
+  ))
+
+marker_tags$ant <- as.factor(marker_tags$ant)
+
+marker_2013 <-filter(marker_tags, year ==2013)
+marker_2014 <- filter(marker_tags, year ==2014)
+
+library(ggplot2)
+
+ggplot(marker_2014, aes(x=date, y=ant)) +
+  geom_point(alpha=0.5)+
+  ggtitle("2014 Marker Tag detections")
+
+rm(old_dat_all, new_dat_all)
+
+#################################################
+### collate the data, removing the test tags ####
+#################################################
+
 old_dat <- old_pit(data=old, test_tags = tt, print_to_file = FALSE)
+new_dat <- new_pit(data=new, test_tags = tt, print_to_file = FALSE)
 
-alldat <- new_pit(data=new, test_tags = tt, print_to_file = FALSE, old_format_data = old_dat)
-
-tag_fish<- alldat$all_det ####dataframe with only detections of tagged fish
+tag_fish<- rbind(old_dat$all_det, new_dat$all_det)####dataframe with only detections of tagged fish
   tag_fish<- filter(tag_fish, tag_code != "900_226000135123") ##tag used for test on exit antenna
   tag_fish<- filter(tag_fish, tag_code != "900_226000135118") ##tag used for test on exit antenna
 tag_all<-alldat$multi_data ##dataframe with all detections (test tags and tagged fish)
